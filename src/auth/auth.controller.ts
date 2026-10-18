@@ -19,7 +19,7 @@ export class AuthController {
   async register(@Body() dto: RegisterShopDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.register(dto);
     res.cookie('access_token', result.accessToken, this.authService.cookieOptions());
-    return { success: true, data: { user: result.user } };
+    return { success: true, data: { user: result.user, accessToken: result.accessToken } };
   }
 
   @Public()
@@ -29,7 +29,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(dto);
     res.cookie('access_token', result.accessToken, this.authService.cookieOptions());
-    return { success: true, data: { user: result.user } };
+    return { success: true, data: { user: result.user, accessToken: result.accessToken } };
   }
 
   @UseGuards(JwtAuthGuard)

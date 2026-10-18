@@ -123,11 +123,11 @@ export class AuthService {
   }
 
   cookieOptions() {
-    const isProduction = this.config.get<string>('nodeEnv') === 'production';
+    const crossSite = process.env.VERCEL === '1' || this.config.get<string>('nodeEnv') === 'production';
     return {
       httpOnly: true,
-      secure: isProduction || this.config.get<boolean>('cookieSecure'),
-      sameSite: isProduction
+      secure: crossSite || this.config.get<boolean>('cookieSecure'),
+      sameSite: crossSite
         ? 'none'
         : this.config.get<'lax' | 'strict' | 'none'>('cookieSameSite'),
       maxAge: 24 * 60 * 60 * 1000,
