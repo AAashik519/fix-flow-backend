@@ -16,6 +16,18 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const port = config.get<number>('port') || 5000;
   const frontendUrl = config.get<string>('frontendUrl') || 'http://localhost:5173';
+  const allowedOrigins = [
+    ...new Set(
+      [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'https://fix-flow-frontend-orpin.vercel.app',
+        ...frontendUrl.split(','),
+      ]
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
+  ];
 
   ensureUploadDir('devices');
   ensureUploadDir('inventory');
@@ -29,7 +41,13 @@ async function bootstrap() {
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1');
   app.enableCors({
-    origin: frontendUrl,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     credentials: true,
   });
   app.useGlobalPipes(

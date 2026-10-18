@@ -123,10 +123,13 @@ export class AuthService {
   }
 
   cookieOptions() {
+    const isProduction = this.config.get<string>('nodeEnv') === 'production';
     return {
       httpOnly: true,
-      secure: this.config.get<boolean>('cookieSecure'),
-      sameSite: this.config.get<'lax' | 'strict' | 'none'>('cookieSameSite'),
+      secure: isProduction || this.config.get<boolean>('cookieSecure'),
+      sameSite: isProduction
+        ? 'none'
+        : this.config.get<'lax' | 'strict' | 'none'>('cookieSameSite'),
       maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     };
