@@ -1,28 +1,37 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { Connection, Model } from 'mongoose';
 import slugify from 'slugify';
 import { UserRole } from '../common/constants/roles';
+import { MailService } from '../mail/mail.service';
 import { Shop, ShopDocument } from '../shops/shop.schema';
 import { User, UserDocument } from '../users/user.schema';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterShopDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Shop.name) private shopModel: Model<ShopDocument>,
     @InjectConnection() private connection: Connection,
     private jwtService: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   async register(dto: RegisterShopDto) {
@@ -95,6 +104,45 @@ export class AuthService {
     if (!shop) throw new UnauthorizedException('Shop not found');
 
     return this.buildAuthResponse(user, shop);
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const generic = { message: 'If that email is registered, a reset link has been sent.' };
+    const user = await this.userModel.findOne({ email: dto.email.toLowerCase() });
+    if (!user || !user.isActive) return generic;
+
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    user.passwordResetTokenHash = tokenHash;
+    user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
+    await user.save();
+
+    const frontend = (this.config.get<string>('frontendUrl') || 'http://localhost:5173').split(',')[0].trim();
+    const resetUrl = `${frontend}/reset-password?token=${encodeURIComponent(token)}`;
+    try {
+      await this.mail.sendPasswordReset({ to: user.email, name: user.name, resetUrl });
+    } catch (err) {
+      this.logger.error(`Password reset email failed for ${user.email}`, err instanceof Error ? err.stack : err);
+    }
+    return generic;
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+    const user = await this.userModel.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+    });
+    if (!user) throw new BadRequestException('Reset link is invalid or expired');
+
+    await this.userModel.updateOne(
+      { _id: user._id },
+      {
+        $set: { passwordHash: await bcrypt.hash(dto.password, 12) },
+        $unset: { passwordResetTokenHash: 1, passwordResetExpires: 1 },
+      },
+    );
+    return { message: 'Password updated. You can sign in.' };
   }
 
   async me(userId: string) {

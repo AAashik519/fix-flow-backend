@@ -88,4 +88,44 @@ export class MailService {
     });
     return true;
   }
+
+  async sendPasswordReset(input: { to: string; name: string; resetUrl: string }): Promise<boolean> {
+    const host = this.config.get<string>('smtp.host');
+    const from = this.config.get<string>('smtp.from');
+    if (!host || !from) {
+      this.logger.warn('SMTP is not configured. Password reset email was not sent.');
+      return false;
+    }
+
+    const port = this.config.get<number>('smtp.port') || 587;
+    const user = this.config.get<string>('smtp.user');
+    const pass = this.config.get<string>('smtp.pass');
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: user ? { user, pass } : undefined,
+    });
+
+    const name = escapeHtml(input.name);
+    const url = escapeHtml(input.resetUrl);
+    await transporter.sendMail({
+      from,
+      to: input.to,
+      subject: 'Reset your FixFlow password',
+      text: [
+        `Hello ${input.name},`,
+        '',
+        'Reset your password with this link. It expires in 30 minutes:',
+        input.resetUrl,
+        '',
+        'If you did not ask for this, you can ignore this email.',
+      ].join('\n'),
+      html: `<p>Hello ${name},</p>
+<p>Reset your password with the button below. This link expires in 30 minutes.</p>
+<p><a href="${url}">Reset password</a></p>
+<p>If you did not ask for this, you can ignore this email.</p>`,
+    });
+    return true;
+  }
 }

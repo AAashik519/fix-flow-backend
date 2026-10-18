@@ -6,8 +6,10 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterShopDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -30,6 +32,24 @@ export class AuthController {
     const result = await this.authService.login(dto);
     res.cookie('access_token', result.accessToken, this.authService.cookieOptions());
     return { success: true, data: { user: result.user, accessToken: result.accessToken } };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @HttpCode(200)
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    const data = await this.authService.forgotPassword(dto);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(200)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    const data = await this.authService.resetPassword(dto);
+    return { success: true, data };
   }
 
   @UseGuards(JwtAuthGuard)

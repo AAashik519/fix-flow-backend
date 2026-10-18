@@ -23,6 +23,12 @@ export class User {
 
   @Prop({ default: true })
   isActive!: boolean;
+
+  @Prop({ select: false })
+  passwordResetTokenHash?: string;
+
+  @Prop({ select: false })
+  passwordResetExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
