@@ -20,6 +20,16 @@ async function bootstrap() {
 
   app.use(
     helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          connectSrc: ["'self'"],
+        },
+      },
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
@@ -49,7 +59,11 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  const swaggerCdn = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.18.2';
+  SwaggerModule.setup('api/docs', app, document, {
+    customCssUrl: `${swaggerCdn}/swagger-ui.css`,
+    customJs: [`${swaggerCdn}/swagger-ui-bundle.js`, `${swaggerCdn}/swagger-ui-standalone-preset.js`],
+  });
 
   await app.listen(port);
   Logger.log(`FixFlow API running on http://localhost:${port}/api/v1`, 'Bootstrap');
