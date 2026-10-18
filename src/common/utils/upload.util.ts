@@ -5,7 +5,8 @@ import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import type { Request } from 'express';
 
-export const UPLOAD_ROOT = join(process.cwd(), 'uploads');
+const onVercel = process.env.VERCEL === '1' || process.cwd() === '/var/task';
+export const UPLOAD_ROOT = onVercel ? join('/tmp', 'uploads') : join(process.cwd(), 'uploads');
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -13,7 +14,12 @@ export const MAX_PHOTOS = 10;
 
 export function ensureUploadDir(subdir: string) {
   const dir = join(UPLOAD_ROOT, subdir);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  try {
+    if (!existsSync(UPLOAD_ROOT)) mkdirSync(UPLOAD_ROOT, { recursive: true });
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    console.warn(`Could not create upload directory ${dir}`, err);
+  }
   return dir;
 }
 

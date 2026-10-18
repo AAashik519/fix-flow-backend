@@ -5,9 +5,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { join } from 'path';
 import { AppModule } from './app.module';
-import { ensureUploadDir } from './common/utils/upload.util';
+import { ensureUploadDir, UPLOAD_ROOT } from './common/utils/upload.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -15,19 +14,6 @@ async function bootstrap() {
   });
   const config = app.get(ConfigService);
   const port = config.get<number>('port') || 5000;
-  const frontendUrl = config.get<string>('frontendUrl') || 'http://localhost:5173';
-  const allowedOrigins = [
-    ...new Set(
-      [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'https://fix-flow-frontend-orpin.vercel.app',
-        ...frontendUrl.split(','),
-      ]
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    ),
-  ];
 
   ensureUploadDir('devices');
   ensureUploadDir('inventory');
@@ -38,17 +24,13 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  app.useStaticAssets(UPLOAD_ROOT, { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1');
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error(`Origin ${origin} is not allowed by CORS`));
-    },
+    origin: true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
   });
   app.useGlobalPipes(
     new ValidationPipe({
